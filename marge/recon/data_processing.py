@@ -26,7 +26,7 @@ def run_recon(raw_data_path=None, mode=None, printer=None):
 
     for filename in files:
         module_name = filename[:-3]  # strip .py
-        full_module = f"recon.{module_name}"
+        full_module = f"marge.recon.{module_name}"
 
         # Dynamically import the module
         mod = importlib.import_module(full_module)

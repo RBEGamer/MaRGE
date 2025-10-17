@@ -5,8 +5,8 @@ import scipy as sp
 from skimage.restoration import unwrap_phase as unwrap
 from sklearn.preprocessing import PolynomialFeatures
 
-from configs import hw_config as hw
-from marge_utils.utils import run_ifft
+from marge.configs import hw_config as hw
+from marge.marge_utils.utils import run_ifft
 
 
 def SPDS(raw_data_path=None):
