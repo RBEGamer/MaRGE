@@ -63,8 +63,9 @@ Install MaRGE with `pip` or `uv` if you only need to run the GUI and do not plan
 1. Go to your project folder. Create and activate a virtual environment:
 
 
-* Ubuntu
-=======
+
+
+
 * Linux / MacOS with `pip`
 
     Note: # On MacOS, the `timeout` command is not available by default, so  `gtimeout` (which can be installed via `Homebrew: brew install coreutils`) is required. In addition the `marcos_install.sh` cant be used, so the initial hardware setup needs to be performed on a Linux system.
