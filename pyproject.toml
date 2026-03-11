@@ -50,8 +50,9 @@ gpu = [
 [project.scripts]
 marge-mri = "marge.main:MaRGE"
 
-[tool.hatch.build.targets.wheel]
-packages = ["src/marge"]
-
-[tools.setuptools]
+[tool.setuptools]
 include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["marge*"]

@@ -55,14 +55,18 @@ Without a configured MaRCoS + Red Pitaya setup, MaRGE can still be launched, but
 
 ---
 
-## 4. Installation with pip
-Install MaRGE with pip if you only need to run the GUI and do not plan to modify the source code or add custom sequences.
+## 4. Installation with pip or uv
+Install MaRGE with `pip` or `uv` if you only need to run the GUI and do not plan to modify the source code or add custom sequences.
 
-    Note: Tyger capabilities are not supported from pip installation.
+    Note: Tyger capabilities are not supported from package installation.
 
-1. Go to your project folder.Create and activate a virtual environment:
+1. Go to your project folder. Create and activate a virtual environment:
 
-* Linux / MacOS
+
+
+
+
+* Linux / MacOS with `pip`
 
     Note: # On MacOS, the `timeout` command is not available by default, so  `gtimeout` (which can be installed via `Homebrew: brew install coreutils`) is required. In addition the `marcos_install.sh` cant be used, so the initial hardware setup needs to be performed on a Linux system.
 
@@ -70,15 +74,32 @@ Install MaRGE with pip if you only need to run the GUI and do not plan to modify
   python3 -m venv venv
   source venv/bin/activate
   ```
-* Windows
+* Windows with `pip`
   ```bash
   python -m venv venv
   source venv/Scripts/activate
   ```
 
-2. Install marge-mri
+* Linux / MacOS with `uv`
+  ```bash
+  uv venv
+  source .venv/bin/activate
+  ```
+
+* Windows with `uv`
+  ```bash
+  uv venv
+  source .venv/Scripts/activate
+  ```
+
+2. Install `marge-mri`
+   * With `pip`
    ```bash
    pip install marge-mri==1.0.0b1
+   ```
+   * With `uv`
+   ```bash
+   uv pip install marge-mri==1.0.0b1
    ```
 
 3. Launch the GUI from terminal:
@@ -113,10 +134,19 @@ Then, add the current folder (MaRGE) to Python's module search path:
     source venv/Scripts/activate
     export PYTHONPATH=$(pwd)
     ```
-3. Install requirements
-    ```bash
-    pip install -r requirements.txt
-    ```
+3. Install dependencies
+   * With `pip`
+   ```bash
+   pip install -r requirements.txt
+   ```
+   * With `uv`
+   ```bash
+   uv sync
+   ```
+   If you prefer to keep using `requirements.txt` instead of `pyproject.toml`, you can also use:
+   ```bash
+   uv pip install -r requirements.txt
+   ```
 4. Go into `MaRGE/marge` folder and run the `main.py`.
 * Ubuntu
     ```bash
@@ -190,3 +220,10 @@ If you install MaRGE from `pyproject.toml`, GPU support can be requested explici
 ```bash
 pip install .[gpu]
 ```
+
+With `uv`, the equivalent command is:
+
+```bash
+uv pip install ".[gpu]"
+```
+
