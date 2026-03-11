@@ -641,6 +641,7 @@ class SequenceController(SequenceToolBar):
             'action_view_sequence', and 'action_add_to_list'. If the server is not connected (unchecked), it disables these actions.
         """
         if self.main.toolbar_marcos.action_server.isChecked():
+            self.action_acquire.setVisible(True)
             self.action_acquire.setDisabled(False)
             self.action_localizer.setDisabled(False)
             self.action_autocalibration.setDisabled(False)
@@ -648,6 +649,7 @@ class SequenceController(SequenceToolBar):
             self.action_view_sequence.setDisabled(False)
             self.action_add_to_list.setDisabled(False)
         else:
+            self.action_acquire.setVisible(False)
             self.action_acquire.setDisabled(True)
             self.action_localizer.setDisabled(True)
             self.action_autocalibration.setDisabled(True)
