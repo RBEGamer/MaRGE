@@ -486,6 +486,10 @@ class HistoryListController(HistoryListWidget):
         the rotation, field of view (FOV), and dynamic field of view (dFOV) values. The sequence is then executed, and
         afterwards, sequence analysis is performed to retrieve the results.
 
+        Pre-sequences defined in the sequence's ``preSequence`` parameter are
+        executed first so that calibration values (e.g. Larmor frequency) are
+        available to the main sequence.
+
         Args:
             sequence (object): The sequence object to be executed.
             key (str): The key associated with the sequence to get previous rotations, shifts and fovs.
@@ -497,6 +501,11 @@ class HistoryListController(HistoryListWidget):
         # Save sequence list into the current sequence, just in case you need to do sweep
         sequence.sequence_list = defaultsequences
         sequence.raw_data_name = raw_data_name
+
+        # Run pre-sequences and forward updated values
+        if not sequence.runPreSequences(demo=self.main.demo):
+            del self.pending_runs[key]
+            return False
 
         # Save input parameters
         sequence.saveParams()
@@ -532,6 +541,9 @@ class HistoryListController(HistoryListWidget):
             return False
 
         if output:
+            # Run post-sequences after the main analysis completes
+            sequence.runPostSequences(demo=self.main.demo)
+
             if sequence.mapVals['seqName'] == 'Localizer':
                 hw.fov = copy.deepcopy(sequence.mapVals['fov'])
             keys = list(self.inputs.keys())  # List of elements in the sequence history list

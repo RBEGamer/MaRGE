@@ -5,6 +5,7 @@ Created on Thu June 2, 2022
 @Summary: mri blank sequence with common methods that will be inherited by any sequence
 """
 
+import copy
 import os
 
 import bm4d
@@ -90,6 +91,10 @@ class MRIBLANKSEQ:
         self.addParameter(key='dfov', val=[0.0, 0.0, 0.0])
         self.addParameter(key='fov', val=[0.0, 0.0, 0.0])
         self.addParameter(key='pypulseq', val=False)
+        self.addParameter(key='preSequence', string='Pre-run sequences', val='none', field='OTH',
+                          tip='Comma-separated list of sequence names to run before the main sequence')
+        self.addParameter(key='postSequence', string='Post-run sequences', val='none', field='OTH',
+                          tip='Comma-separated list of sequence names to run after the main sequence')
 
     # *********************************************************************************
     # *********************************************************************************
@@ -208,6 +213,157 @@ class MRIBLANKSEQ:
             self.plotResults()
 
         return self.output
+
+    # *********************************************************************************
+    # Pre/Post sequence execution methods
+    # *********************************************************************************
+
+    # Keys that should not be forwarded between pre/post sequences and the main
+    _EXCLUDED_FORWARD_KEYS = frozenset({'seqName', 'toMaRGE', 'preSequence', 'postSequence'})
+
+    @staticmethod
+    def _valuesChanged(val_a, val_b):
+        """Return True if two parameter values differ.
+
+        Handles scalars, lists, and numpy arrays without relying on
+        exception-based flow control.
+        """
+        if isinstance(val_a, np.ndarray) or isinstance(val_b, np.ndarray):
+            return not np.array_equal(val_a, val_b)
+        if isinstance(val_a, (list, tuple)) or isinstance(val_b, (list, tuple)):
+            try:
+                return not np.array_equal(val_a, val_b)
+            except (ValueError, TypeError):
+                return val_a != val_b
+        return val_a != val_b
+
+    @staticmethod
+    def _parseSequenceNames(names_str):
+        """Parse a comma-separated string of sequence names into a list.
+
+        Args:
+            names_str (str): Comma-separated sequence names. A value of 'none'
+                or an empty string means no sequences.
+
+        Returns:
+            list: List of stripped, non-empty sequence name strings.
+        """
+        if not names_str or not isinstance(names_str, str) or names_str.strip().lower() == 'none':
+            return []
+        return [name.strip() for name in names_str.split(',') if name.strip()]
+
+    def runPreSequences(self, demo=False):
+        """Run pre-sequences and forward updated values to this sequence.
+
+        Pre-sequences defined in ``mapVals['preSequence']`` are executed in order
+        before the main sequence. Each pre-sequence runs both ``sequenceRun`` and
+        ``sequenceAnalysis`` so that calibration results (e.g. Larmor frequency)
+        are computed and propagated.
+
+        After each pre-sequence completes its analysis, any values it updated in
+        the shared ``sequence_list`` template for *this* sequence are detected and
+        forwarded into this sequence's ``mapVals``.
+
+        Args:
+            demo (bool): If True, run pre-sequences in demo mode.
+
+        Returns:
+            bool: True if all pre-sequences completed successfully or none were
+                defined, False if any pre-sequence failed.
+        """
+        pre_names = self._parseSequenceNames(self.mapVals.get('preSequence', ''))
+        if not pre_names or not hasattr(self, 'sequence_list') or self.sequence_list is None:
+            return True
+
+        my_seq_name = self.mapVals.get('seqName', '')
+
+        for seq_name in pre_names:
+            if seq_name not in self.sequence_list:
+                print(f"WARNING: Pre-sequence '{seq_name}' not found. Skipping.")
+                continue
+
+            # Snapshot template values so we can detect what the pre-sequence changed
+            before_vals = {}
+            if my_seq_name in self.sequence_list:
+                for k in self.sequence_list[my_seq_name].mapKeys:
+                    before_vals[k] = copy.deepcopy(self.sequence_list[my_seq_name].mapVals.get(k))
+
+            # Create a deep copy of the pre-sequence to avoid mutating the default
+            pre_seq = copy.deepcopy(self.sequence_list[seq_name])
+            pre_seq.sequence_list = self.sequence_list
+            pre_seq.raw_data_name = f"pre_{seq_name}"
+            # Prevent recursive pre/post execution
+            pre_seq.mapVals['preSequence'] = 'none'
+            pre_seq.mapVals['postSequence'] = 'none'
+
+            pre_seq.sequenceAtributes()
+
+            print(f"Running pre-sequence: {seq_name}")
+            if pre_seq.sequenceRun(plotSeq=0, demo=demo):
+                pre_seq.sequenceAnalysis()
+                print(f"Pre-sequence '{seq_name}' completed successfully")
+            else:
+                print(f"WARNING: Pre-sequence '{seq_name}' failed")
+                return False
+
+            # Forward values that the pre-sequence updated in our template
+            if my_seq_name in self.sequence_list:
+                template_vals = self.sequence_list[my_seq_name].mapVals
+                for key in before_vals:
+                    if key in template_vals and key in self.mapVals:
+                        if self._valuesChanged(template_vals[key], before_vals[key]):
+                            self.mapVals[key] = template_vals[key]
+                            print(f"  Forwarded '{key}' = {template_vals[key]}")
+
+        return True
+
+    def runPostSequences(self, demo=False):
+        """Run post-sequences after the main sequence completes.
+
+        Post-sequences defined in ``mapVals['postSequence']`` are executed in
+        order after the main sequence's run and analysis. Shared parameter values
+        from the main sequence are forwarded to each post-sequence before it runs.
+
+        Args:
+            demo (bool): If True, run post-sequences in demo mode.
+
+        Returns:
+            bool: True if all post-sequences completed successfully or none were
+                defined, False if any post-sequence failed.
+        """
+        post_names = self._parseSequenceNames(self.mapVals.get('postSequence', ''))
+        if not post_names or not hasattr(self, 'sequence_list') or self.sequence_list is None:
+            return True
+
+        for seq_name in post_names:
+            if seq_name not in self.sequence_list:
+                print(f"WARNING: Post-sequence '{seq_name}' not found. Skipping.")
+                continue
+
+            # Create a deep copy of the post-sequence
+            post_seq = copy.deepcopy(self.sequence_list[seq_name])
+            post_seq.sequence_list = self.sequence_list
+            post_seq.raw_data_name = f"post_{seq_name}"
+            # Prevent recursive pre/post execution
+            post_seq.mapVals['preSequence'] = 'none'
+            post_seq.mapVals['postSequence'] = 'none'
+
+            # Forward shared values from the main sequence to the post-sequence
+            for key in self.mapVals:
+                if key in post_seq.mapVals and key not in self._EXCLUDED_FORWARD_KEYS:
+                    post_seq.mapVals[key] = self.mapVals[key]
+
+            post_seq.sequenceAtributes()
+
+            print(f"Running post-sequence: {seq_name}")
+            if post_seq.sequenceRun(plotSeq=0, demo=demo):
+                post_seq.sequenceAnalysis()
+                print(f"Post-sequence '{seq_name}' completed successfully")
+            else:
+                print(f"WARNING: Post-sequence '{seq_name}' failed")
+                return False
+
+        return True
 
     def rotate_waveforms(self, waveforms):
         """
