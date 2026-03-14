@@ -218,6 +218,25 @@ class MRIBLANKSEQ:
     # Pre/Post sequence execution methods
     # *********************************************************************************
 
+    # Keys that should not be forwarded between pre/post sequences and the main
+    _EXCLUDED_FORWARD_KEYS = frozenset({'seqName', 'toMaRGE', 'preSequence', 'postSequence'})
+
+    @staticmethod
+    def _valuesChanged(val_a, val_b):
+        """Return True if two parameter values differ.
+
+        Handles scalars, lists, and numpy arrays without relying on
+        exception-based flow control.
+        """
+        if isinstance(val_a, np.ndarray) or isinstance(val_b, np.ndarray):
+            return not np.array_equal(val_a, val_b)
+        if isinstance(val_a, (list, tuple)) or isinstance(val_b, (list, tuple)):
+            try:
+                return not np.array_equal(val_a, val_b)
+            except (ValueError, TypeError):
+                return val_a != val_b
+        return val_a != val_b
+
     @staticmethod
     def _parseSequenceNames(names_str):
         """Parse a comma-separated string of sequence names into a list.
@@ -292,11 +311,7 @@ class MRIBLANKSEQ:
                 template_vals = self.sequence_list[my_seq_name].mapVals
                 for key in before_vals:
                     if key in template_vals and key in self.mapVals:
-                        try:
-                            changed = template_vals[key] != before_vals[key]
-                        except (ValueError, TypeError):
-                            changed = not np.array_equal(template_vals[key], before_vals[key])
-                        if np.any(changed):
+                        if self._valuesChanged(template_vals[key], before_vals[key]):
                             self.mapVals[key] = template_vals[key]
                             print(f"  Forwarded '{key}' = {template_vals[key]}")
 
@@ -335,7 +350,7 @@ class MRIBLANKSEQ:
 
             # Forward shared values from the main sequence to the post-sequence
             for key in self.mapVals:
-                if key in post_seq.mapVals and key not in ('seqName', 'toMaRGE', 'preSequence', 'postSequence'):
+                if key in post_seq.mapVals and key not in self._EXCLUDED_FORWARD_KEYS:
                     post_seq.mapVals[key] = self.mapVals[key]
 
             post_seq.sequenceAtributes()

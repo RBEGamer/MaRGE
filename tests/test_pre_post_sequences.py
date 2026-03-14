@@ -68,6 +68,22 @@ class _LarmorStub(_StubSequence):
         return self.output
 
 
+class _RecordingPostStub(_StubSequence):
+    """A post-sequence that records received larmorFreq into sequence_list."""
+
+    # Class-level variable to record the received value
+    received_freq = None
+
+    def __init__(self):
+        super().__init__(name='RecordingPostStub')
+
+    def sequenceAnalysis(self, mode=None):
+        super().sequenceAnalysis(mode=mode)
+        # Record the larmorFreq this post-sequence received
+        _RecordingPostStub.received_freq = self.mapVals.get('larmorFreq')
+        return self.output
+
+
 class _FailingStub(_StubSequence):
     """A sequence whose sequenceRun always fails."""
 
@@ -229,10 +245,12 @@ class TestPostSequenceExecution(unittest.TestCase):
 
     def _build_sequence_list(self):
         stub = _StubSequence(name='PostStub')
+        recording = _RecordingPostStub()
         main_template = _StubSequence(name='MainSeq')
         failing = _FailingStub()
         return {
             'PostStub': stub,
+            'RecordingPostStub': recording,
             'MainSeq': main_template,
             'FailingStub': failing,
         }
@@ -248,11 +266,17 @@ class TestPostSequenceExecution(unittest.TestCase):
         sequence_list = self._build_sequence_list()
         main = _StubSequence(name='MainSeq')
         main.sequence_list = sequence_list
-        main.mapVals['postSequence'] = 'PostStub'
+        main.mapVals['postSequence'] = 'RecordingPostStub'
         main.mapVals['larmorFreq'] = 3.2  # Simulate updated value
 
+        _RecordingPostStub.received_freq = None  # Reset
         result = main.runPostSequences(demo=True)
         self.assertTrue(result)
+        # The deep-copied post-sequence should have received the forwarded value
+        self.assertEqual(
+            _RecordingPostStub.received_freq, 3.2,
+            "Post-sequence should receive the forwarded larmorFreq value",
+        )
 
     def test_post_sequence_failure_returns_false(self):
         """If a post-sequence fails, runPostSequences returns False."""
