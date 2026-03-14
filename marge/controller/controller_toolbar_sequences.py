@@ -163,6 +163,10 @@ class SequenceController(SequenceToolBar):
         # Add sequence name for metadata
         defaultsequences[self.seq_name].raw_data_name = self.seq_name
 
+        # Run pre-sequences and forward updated values
+        if not defaultsequences[self.seq_name].runPreSequences(demo=self.main.demo):
+            return 0
+
         # Save input parameters
         defaultsequences[self.seq_name].saveParams()
 
@@ -187,6 +191,9 @@ class SequenceController(SequenceToolBar):
 
             # Do sequence analysis and acquire de plots
             self.old_out = defaultsequences[self.seq_name].sequenceAnalysis()
+
+            # Run post-sequences after the main analysis completes
+            defaultsequences[self.seq_name].runPostSequences(demo=self.main.demo)
 
             # Update parameters, just in case something changed
             self.main.sequence_list.updateSequence()
